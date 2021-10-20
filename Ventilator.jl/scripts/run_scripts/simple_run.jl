@@ -27,58 +27,74 @@ Samples parameters - hdim, activation function, MAE vs MSE,
 divided or not, scaling term etc.
 """
 function sample_params()
-    hdim = sample(2 .^ [5,6,7,8,9])
-    act = sample(["swish", "relu", "tanh", "sigmoid"])
+    hdim = sample(2 .^ [6,7,8,9])
+    act = "relu" # sample(["swish", "relu", "tanh", "sigmoid"])
     err = sample(["mae", "mse"])
-    div = sample([true, false])
-    β = sample(2:2:50)
+    div = true # sample([true, false])
+    β = sample(10:10:100)
     return hdim, act, err, div, β
 end
 
+# get parameters
 idim = length(X_train[1])
 odim = length(P_train[1])
-
 hdim, act, err, div, β = sample_params()
 err_fun = eval(:($(Symbol(err))))
 activation = eval(:($(Symbol(act))))
 
+# create the model
 model = Chain(Dense(idim, hdim, activation),Dense(hdim,hdim,activation),Dense(hdim,odim))
 
-lossfun(X, P; err=mae) = err(model(X), P)
-function lossfun_div(X, P, b; err=mae,β=10)
+# loss functions
+"""
+    lossfun(X, P; err::Function=mae)
+
+Calculates simple MAE or MSE loss between the predicted values and true values.
+"""
+lossfun(X, P; err::Function=mae) = err(model(X), P)
+
+"""
+    lossfun_div(X, P, b; err::Function=mae,β=10)
+
+Calculates MAE or MSE loss between the predicted values and true values
+based on whether the breath goes in or out. Gives more importance to 
+breathe-in values given β.
+"""
+function lossfun_div(X, P, b; err::Function=mae,β=10)
     W = model(X)
     Win, Wout = W[b .== 0], W[b .== 1]
     Pin, Pout = P[b .== 0], P[b .== 1]
     β*err(Win, Pin) + err(Wout,Pout)
 end
 
+# if div=true, uses the loss with more importance to breathe-in
 if div
     loss(X, P, b) = lossfun_div(X, P, b; err=err_fun, β=β)
 else
     loss(X, P, b) = lossfun(X, P; err=err_fun)
 end
 
+# definition of score functions (results are score with MAE)
 score(X, P) = Flux.mae(model(X), P)
 score(X, P, b) = Flux.mae(model(X)[b .== 0], P[b .== 0])
 best_score(X, P, b) = Flux.mae(best_model(X)[b .== 0], P[b .== 0])
-opt = ADAM()
 
+# initialize optimizer and other values
+opt = ADAM()
 best_val_score = Inf
 best_model = deepcopy(model)
-
 start_time = time()
-max_train_time = 60*60*3.5
+max_train_time = 60*60*11.7
 k = 1
 
+# start training
 @info "Started training model with $hdim number of hidden neurons, $act activation function, $err loss (divided=$div)."
 while true
-    if div
-        batch = RandomBatch(X_train, P_train, B_train, batchsize=64)
-    else
-        batch = RandomBatch(X_train, P_train, batchsize=64)
-    end
+    # create a minibatch and train the model on a minibatch
+    batch = RandomBatch(X_train, P_train, B_train, batchsize=64)
     Flux.train!(loss, Flux.params(model), zip(batch...),opt)
 
+    # only save a best model which has the best score on validation data
     l = mean(score.(X_val, P_val, B_val))
     if l < best_val_score
         global best_model = deepcopy(model)
@@ -87,18 +103,19 @@ while true
     end
     global k += 1
 
-    # stop early if time is running out
+    # stop when training time is exceeded
     if (time() - start_time > max_train_time)
         @info "Stopped training, time limit exceeded."
         break
     end
 end
 
-train_sc = mean(score.(X_train, P_train, B_train))
-val_sc = mean(score.(X_val, P_val, B_val))
-test_sc = mean(score.(X_test, P_test, B_test))
+# calculate the score given the best model after training is finished
+train_sc = mean(best_score.(X_train, P_train, B_train))
+val_sc = mean(best_score.(X_val, P_val, B_val))
+test_sc = mean(best_score.(X_test, P_test, B_test))
 
-# save best model
+# save the best model and the parameters
 using BSON
 d = Dict(
     :model => best_model,
