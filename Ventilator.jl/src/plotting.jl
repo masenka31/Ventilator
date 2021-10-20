@@ -19,9 +19,9 @@ function plot_lungs(X_val, P_val)
         P = P_val[i]
         W = predict(X)
 
-        plot(P', marker=:circle, markersize=2,label="");
+        plot(P, marker=:circle, markersize=2,label="");
         #plot!(X[2,:],label="");
-        px = plot!(W', marker=:square, markersize=2, label="")
+        px = plot!(W, marker=:square, markersize=2, label="")
         push!(p, px)
     end
     plot(p...,layout=(2,2))
