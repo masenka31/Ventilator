@@ -62,3 +62,30 @@ function load_data_vectors(;seed=nothing)
 
     return (X_train, P_train), (X_val, P_val), (X_test, P_test), (B_train, B_val, B_test)
 end
+
+function load_data_single(;seed=nothing)
+
+    data = CSV.read(datadir("train.csv"), DataFrame)
+    groups = groupby(data, :breath_id)
+
+    _X_data = data[:, [:time_step, :u_in, :u_out, :R, :C]] |> Array |> transpose |> collect
+    X_data = [_X_data[:,i] for i in 1:size(_X_data,2)]
+    P_data = data[:, :pressure]
+
+    # set seed
+    (seed == nothing) ? nothing : Random.seed!(seed)
+
+    l = length(P_data)
+    a = Int(l*0.8)
+    b = (l - a) / 2 |> Int
+    idx = sample(1:l, l, replace=false)
+    tix, val_ix, test_ix = idx[1:a], idx[a+1:a+b], idx[a+b+1:end]
+    X_train, P_train = X_data[tix], P_data[tix]
+    X_val, P_val = X_data[val_ix], P_data[val_ix]
+    X_test, P_test = X_data[test_ix], P_data[test_ix]
+
+	# reset seed
+	(seed !== nothing) ? Random.seed!() : nothing
+
+    return (X_train, P_train), (X_val, P_val), (X_test, P_test)
+end

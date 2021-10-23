@@ -10,7 +10,7 @@ include("data.jl")
 include("utils.jl")
 
 export scatter2, scatter2!
-export load_data_vectors, load_data_bags
+export load_data_vectors, load_data_bags, load_data_single
 export RandomBatch
 
 end #module
