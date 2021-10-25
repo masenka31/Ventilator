@@ -4,17 +4,19 @@ using DataFrames, CSV
 using Random
 using StatsBase
 
-function load_data_bags(;seed=nothing)
+function load_data_bags(;seed=nothing, vars::Vector{Symbol}=[:time_step, :u_in, :u_out, :R, :C])
 
     data = CSV.read(datadir("train.csv"), DataFrame)
     groups = groupby(data, :breath_id)
 
-    X_data, P_data = Array{Float32,2}[], Array{Float32,2}[]
+    X_data, P_data, B_data = Array{Float32,2}[], Array{Float32,2}[], Array{Float32,2}[]
     @time for g in groups
-        x = collect(g[!, [:time_step, :u_in, :u_out, :R, :C]] |> Array |> transpose)
+        x = collect(g[!, vars] |> Array |> transpose)
         push!(X_data, x)
         p = collect(g[:, :pressure]')
         push!(P_data, p)
+        b = collect(g[:, :u_out]')
+        push!(B_data, b)
     end
 
     # set seed
@@ -22,14 +24,14 @@ function load_data_bags(;seed=nothing)
 
     idx = sample(1:75000, 75000, replace=false)
     tix, val_ix, test_ix = idx[1:60000], idx[60001:67500], idx[67501:end]
-    X_train, P_train = X_data[tix], P_data[tix]
-    X_val, P_val = X_data[val_ix], P_data[val_ix]
-    X_test, P_test = X_data[test_ix], P_data[test_ix]
+    X_train, P_train, B_train = X_data[tix], P_data[tix], B_data[tix]
+    X_val, P_val, B_val = X_data[val_ix], P_data[val_ix], B_data[val_ix]
+    X_test, P_test, B_test = X_data[test_ix], P_data[test_ix], B_data[test_ix]
 
     # reset seed
 	(seed !== nothing) ? Random.seed!() : nothing
 
-    return (X_train, P_train), (X_val, P_val), (X_test, P_test)
+    return (X_train, P_train), (X_val, P_val), (X_test, P_test), (B_train, B_val, B_test)
 end
 
 function load_data_vectors(;seed=nothing)
@@ -89,3 +91,17 @@ function load_data_single(;seed=nothing)
 
     return (X_train, P_train), (X_val, P_val), (X_test, P_test)
 end
+
+# data standartization
+# https://juliastats.org/StatsBase.jl/stable/transformations/
+
+"""
+dtx = hcat(X_train...)
+dtp = hcat(P_train...)
+
+x_tf = fit(ZScoreTransform, dtx, dims=2)
+p_tf = fit(ZScoreTransform, dtp, dims=2)
+
+StatsBase.transform(x_tf, dtx)
+StatsBase.transform(p_tf, dtp)
+"""
