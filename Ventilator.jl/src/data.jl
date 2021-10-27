@@ -117,12 +117,3 @@ StatsBase.transform(x_tf, dtx)
 StatsBase.transform(p_tf, dtp)
 """
 
-function RandomBatch(Xd::Vector{Vector{Vector{Float32}}}, Yd::Vector{Vector{Vector{Float32}}}; batchsize=64)
-    l = length(Xd)
-    idx = sample(1:l, batchsize, replace=false)
-    X = Xd[idx]
-    Y = Yd[idx]
-    x = [hcat([X[i][j] for i in 1:batchsize]...) for j in 1:80]
-    y = [hcat([Y[i][j] for i in 1:batchsize]...) for j in 1:80]
-    (x, y)
-end
