@@ -4,17 +4,28 @@ using DataFrames, CSV
 using Random
 using StatsBase
 
-function load_data_bags(;seed=nothing, vars::Vector{Symbol}=[:time_step, :u_in, :u_out, :R, :C])
+function load_data_bags(;seed=nothing, vars::Vector{Symbol}=[:time_step, :u_in, :u_out, :R, :C], rnn=false)
 
     data = CSV.read(datadir("train.csv"), DataFrame)
     groups = groupby(data, :breath_id)
 
-    X_data, P_data, B_data = Array{Float32,2}[], Array{Float32,2}[], Array{Float32,2}[]
+    if rnn
+        X_data, P_data, B_data = Vector{Vector{Float32}}[], Vector{Vector{Float32}}[], Array{Float32,2}[] #Array{Float32,2}[], Array{Float32,2}[], Array{Float32,2}[]
+    else
+        X_data, P_data, B_data = Array{Float32,2}[], Array{Float32,2}[], Array{Float32,2}[]
+    end
     @time for g in groups
         x = collect(g[!, vars] |> Array |> transpose)
-        push!(X_data, x)
         p = collect(g[:, :pressure]')
-        push!(P_data, p)
+
+        if rnn
+            push!(X_data, [xi for xi in eachcol(x)])
+            push!(P_data, [pi for pi in eachcol(p)])
+        else
+            push!(X_data, x)
+            push!(P_data, p)
+        end
+
         b = collect(g[:, :u_out]')
         push!(B_data, b)
     end
@@ -105,3 +116,13 @@ p_tf = fit(ZScoreTransform, dtp, dims=2)
 StatsBase.transform(x_tf, dtx)
 StatsBase.transform(p_tf, dtp)
 """
+
+function RandomBatch(Xd::Vector{Vector{Vector{Float32}}}, Yd::Vector{Vector{Vector{Float32}}}; batchsize=64)
+    l = length(Xd)
+    idx = sample(1:l, batchsize, replace=false)
+    X = Xd[idx]
+    Y = Yd[idx]
+    x = [hcat([X[i][j] for i in 1:batchsize]...) for j in 1:80]
+    y = [hcat([Y[i][j] for i in 1:batchsize]...) for j in 1:80]
+    (x, y)
+end

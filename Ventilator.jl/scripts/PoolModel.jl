@@ -50,7 +50,7 @@ opt = ADAM()
 
 best_val_score = Inf
 best_model = deepcopy(model)
-max_train_time = 60*5
+max_train_time = 60*60
 k = 1
 
 start_time = time()

@@ -6,101 +6,54 @@ using Flux
 using Base.Iterators: repeated
 using Flux: throttle, @epochs, mae, mse
 using StatsBase
-using Ventilator
 
 using Plots
-ENV["GKSwstype"] = "100"
+# ENV["GKSwstype"] = "100"
 
 # load data and unpack it
-seed = rand(1:1000)
-data = load_data_bags(;seed=seed);
+# seed = rand(1:1000)
+seed = 1
+data = load_data_bags(;seed=seed, rnn=true);
 X_train, P_train = data[1];
 X_val, P_val = data[2];
 X_test, P_test = data[3];
-B_train, B_val, B_test = data[4]
+B_train, B_val, B_test = data[4];
+x, p = X_train[1], P_train[1]
 @info "Data loaded."
 
-"""
-    sample_params()
-
-Samples parameters - hdim, activation function, MAE vs MSE,
-divided or not, scaling term etc.
-"""
-function sample_params()
-    hdim = sample(2 .^ [6,7,8,9])
-    act = "relu" # sample(["swish", "relu", "tanh", "sigmoid"])
-    err = sample(["mae", "mse"])
-    div = true # sample([true, false])
-    β = sample(10:10:100)
-    return hdim, act, err, div, β
+function loss(x, y)
+    Flux.reset!(model)
+    # TO DO
+    # b = hcat(x...)[3,:]
+    # mean(Flux.mae(model(xi), yi) for (xi, yi) in zip(x[b .== 0], y[b .== 0]))
+    mean(Flux.mae(model(xi), yi) for (xi, yi) in zip(x, y))
+end
+function sumloss(x, y)
+    Flux.reset!(model)
+    sum(Flux.mae(model(xi), yi) for (xi, yi) in zip(x, y))
 end
 
-# get parameters
-idim = size(X_train[1],1)
-odim = size(P_train[1],1)
-hdim, act, err, div, β = sample_params()
-err_fun = eval(:($(Symbol(err))))
-activation = eval(:($(Symbol(act))))
-
-# create the model
-# model = Chain(Dense(idim, hdim, activation),Dense(hdim,hdim,activation),Dense(hdim,odim))
-model = Chain(LSTM(idim, hdim),Dense(hdim,hdim,activation),Dense(hdim,odim))
-
-# loss functions
-"""
-    lossfun(X, P; err::Function=mae)
-
-Calculates simple MAE or MSE loss between the predicted values and true values.
-"""
-lossfun(X, P; err::Function=mae) = err(model(X), P)
-
-"""
-    lossfun_div(X, P, b; err::Function=mae,β=10)
-
-Calculates MAE or MSE loss between the predicted values and true values
-based on whether the breath goes in or out. Gives more importance to 
-breathe-in values given β.
-"""
-function lossfun_div(X, P, b; err::Function=mae,β=10)
-    W = model(X)
-    Win, Wout = W[b .== 0], W[b .== 1]
-    Pin, Pout = P[b .== 0], P[b .== 1]
-    β*err(Win, Pin) + err(Wout,Pout)
-end
-
-# if div=true, uses the loss with more importance to breathe-in
-if div
-    loss(X, P, b) = lossfun_div(X, P, b; err=err_fun, β=β)
-else
-    loss(X, P) = lossfun(X, P; err=err_fun)
-end
-
-# definition of score functions (results are score with MAE)
-score(X, P) = Flux.mae(model(X), P)
-score(X, P, b) = Flux.mae(model(X)[1,b .== 0], P[1,b .== 0])
-best_score(X, P, b) = Flux.mae(best_model(X)[1,b .== 0], P[1,b .== 0])
-
-# initialize optimizer and other values
 opt = ADAM()
+model = Chain(LSTM(5,32), LSTM(32,32), Dense(32,1))
 best_val_score = Inf
 best_model = deepcopy(model)
-max_train_time = 60*60
+max_train_time = 60*60*9
 k = 1
 
 # start training
 start_time = time()
-@info "Started training model with $hdim number of hidden neurons, $act activation function, $err loss (divided=$div)."
 while true
     # create a minibatch and train the model on a minibatch
-    batch = RandomBatch(X_train, P_train, batchsize=64)
-    Flux.train!(loss, Flux.params(model), zip(batch...),opt)
+    batch = RandomBatch(X_train, P_train, batchsize=128)
+    Flux.train!(loss, Flux.params(model), repeated((batch[1], batch[2]), 5), opt)
 
     # only save a best model which has the best score on validation data
-    l = mean(score.(X_val, P_val))
-    if l < best_val_score
+    # sc = loss(RandomBatch(X_val, P_val, batchsize=7500)...)
+    sc = mean(score.(X_val, P_val))
+    if sc < best_val_score
         global best_model = deepcopy(model)
-        global best_val_score = l
-        @info "Epoch $k: score = $(round(l, digits=3))"
+        global best_val_score = sc
+        @info "Epoch $k: validation score = $(round(sc, digits=3))"
     end
     global k += 1
 
@@ -112,41 +65,37 @@ while true
 end
 
 # calculate the score given the best model after training is finished
-train_sc = mean(best_score.(X_train, P_train, B_train))
-val_sc = mean(best_score.(X_val, P_val, B_val))
-test_sc = mean(best_score.(X_test, P_test, B_test))
+train_sc = loss(RandomBatch(X_train, P_train, batchsize=60000)...)
+val_sc = loss(RandomBatch(X_val, P_val, batchsize=7500)...)
+test_sc = loss(RandomBatch(X_test, P_test, batchsize=7500)...)
 
-# save the best model and the parameters
-using BSON
-d = Dict(
-    :model => best_model,
-    :seed => seed,
-    :hdim => hdim,
-    :activation => act,
-    :loss => err,
-    :divide => div,
-    :beta => β,
-    :train_score => train_sc,
-    :val_score => val_sc,
-    :test_score => test_sc
-)
-name = savename("model", d, "bson")
-safesave(datadir("models", name), d)
+x = X_train[1]
+y = P_train[1]
+loss(x, y)
 
-# plot some of the results
-function plot_lungs(X_val, P_val)
-    p = Plots.Plot{Plots.GRBackend}[]
-    for k in 1:4
-        i = rand(1:7500)
-        X = X_val[i]
-        P = P_val[i]
-        W = model(X)
+prediction = vcat([model(xi) for xi in x]...)
+pressure = vcat(p...)
+Flux.mae(prediction, pressure)
 
-        plot(P, marker=:circle, markersize=2,label="");
-        px = plot!(W, marker=:square, markersize=2, label="")
-        push!(p, px)
-    end
-    plot(p...,layout=(2,2))
+function predict(model, x)
+    Flux.reset!(model)
+    vcat([model(xi) for xi in x]...)
 end
-p = plot_lungs(X_val, P_val)
-safesave(plotsdir("predictions.png"),p)
+function score(x::Vector{Vector{Float32}}, p::Vector{Vector{Float32}})
+    b = hcat(x...)[3,:]
+    Flux.mae(predict(model, x)[b .== 0], vcat(p...)[b .== 0])
+end
+function best_score(x, p)
+    b = hcat(x...)[3,:]
+    Flux.mae(predict(best_model, x)[b .== 0], vcat(p...)[b .== 0])
+end
+score(x, p)
+best_score(x, p)
+
+mean(score.(X_val, P_val))
+mean(best_score.(X_val, P_val))
+mean(best_score.(X_test, P_test))
+
+i = rand(1:7500)
+plot(vcat(P_val[i]...), marker=:circle, label="ground truth", color=:green);
+plot!(predict(best_model, X_val[i]), marker=:square, label="prediction", title="MAE: $(round(best_score(X_val[i], P_val[i]), digits=3))")
