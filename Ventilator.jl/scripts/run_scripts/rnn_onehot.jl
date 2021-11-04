@@ -7,13 +7,9 @@ using Base.Iterators: repeated
 using Flux: throttle, @epochs, mae, mse
 using StatsBase
 
-using Plots
-# ENV["GKSwstype"] = "100"
-
 # load data and unpack it
-# seed = rand(1:1000)
 seed = 1
-data = load_data_bags(;seed=seed, rnn=true);
+data = load_data_bags_onehot(;seed=seed, rnn=true);
 X_train, P_train = data[1];
 X_val, P_val = data[2];
 X_test, P_test = data[3];
@@ -57,6 +53,7 @@ end
 ##################
 
 # sample parameters and create model
+idim = size(X_train[1][1],1)
 pvec = sample_params()
 model = rnn_constructor(;idim = 5, odim = 1, pvec...)
 
@@ -117,8 +114,4 @@ d = Dict(
     :test_score => test_sc
 )
 name = savename("model", d, "bson")
-safesave(datadir("RNN", name), d)
-
-# i = rand(1:7500)
-# plot(vcat(P_val[i]...), marker=:circle, label="ground truth", color=:green);
-# plot!(predict(best_model, X_val[i]), marker=:square, label="prediction", title="MAE: $(round(best_score(X_val[i], P_val[i]), digits=3))")
+safesave(datadir("RNN_onehot", name), d)

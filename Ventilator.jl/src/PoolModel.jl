@@ -52,7 +52,7 @@ Dimensions:
 - postdim: the output dimension of post-pool network and input dimension of encoder and generator
 - edim: output dimension of encoder and generator, input dimension to decoder
 """
-function pm_constructor(;idim, odim, hdim=32, predim=16, postdim=16, edim=16,
+function pm_constructor(xsample;idim, odim, hdim=32, predim=16, postdim=16, edim=16,
                             activation="swish", cell="Dense", nlayers=3, var="scalar",
                             poolf="pool", init_seed=nothing, kwargs...)
 

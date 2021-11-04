@@ -9,7 +9,7 @@ using StatsBase
 using Ventilator
 
 using Plots
-ENV["GKSwstype"] = "100"
+# ENV["GKSwstype"] = "100"
 
 # load data and unpack it
 seed = 1 #rand(1:1000)

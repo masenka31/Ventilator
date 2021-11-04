@@ -16,6 +16,7 @@ using Plots
 # seed = rand(1:1000)
 seed = 1
 data = load_data_bags(;seed=seed);
+# data = load_data_bags_onehot(;seed=seed);
 X_train, P_train = data[1];
 X_val, P_val = data[2];
 X_test, P_test = data[3];
@@ -25,7 +26,7 @@ x, p, b = X_train[1], P_train[1], B_train[1];
 
 
 # parameters
-idim = 2
+idim = size(x, 1)
 odim = 1
 hdim = 256
 predim = 32
