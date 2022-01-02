@@ -1,3 +1,8 @@
+"""
+    RandomBatch(xdata,ydata;batchsize::Int=64)
+
+Samples random batch of `batchsize` size from data X, Y.
+"""
 function RandomBatch(xdata,ydata;batchsize::Int=64)
     l = length(xdata)
 	if batchsize > l
@@ -6,6 +11,13 @@ function RandomBatch(xdata,ydata;batchsize::Int=64)
     idx = sample(1:l,batchsize)
     return xdata[idx],ydata[idx]
 end
+
+"""
+    RandomBatch(xdata,ydata,bdata;batchsize::Int=64)
+
+Samples random batch of `batchsize` size from data X, Y, B,
+where B is a vector of boolean values indicating value of `u_out`.
+"""
 function RandomBatch(xdata,ydata,bdata;batchsize::Int=64)
     l = length(xdata)
 	if batchsize > l
@@ -14,6 +26,13 @@ function RandomBatch(xdata,ydata,bdata;batchsize::Int=64)
     idx = sample(1:l,batchsize)
     return xdata[idx],ydata[idx],bdata[idx]
 end
+
+"""
+    RandomBatch(xdata,ydata,bdata;batchsize::Int=64)
+
+Samples random batch of `batchsize` size from data X, Y, B,
+where B is a vector of boolean values indicating value of `u_out`.
+"""
 function RandomBatch(Xd::Vector{Vector{Vector{Float32}}}, Yd::Vector{Vector{Vector{Float32}}}; batchsize=64)
     l = length(Xd)
     idx = sample(1:l, batchsize, replace=false)

@@ -137,15 +137,18 @@ end
 diffn(x, n) = hcat(map(i -> x[:, i+n] .- x[:, i], 1:size(x,2)-n)...)
 
 """
-    pool_source(_x)
+    pool_source(_x; u = 0)
 
 This function takes the original input and returns summary statistics as
-well as other characteristics of the input matrix.
+well as other characteristics of the input matrix. Only calculates the data
+for breathe-in or breathe-out (controlled with u = 0 or 1).
 """
-function pool_source(_x)
+function pool_source(_x; u = 0, rc = true)
     b = _x[3,:]
-    R, C = _x[4,1], _x[5,1]
-    x = _x[1:2, b .== 0]
+    if rc
+        R, C = _x[4,1], _x[5,1]
+    end
+    x = _x[1:2, b .== u]
 
     # simple statistics
     M = sum_stat(x)
@@ -168,9 +171,13 @@ function pool_source(_x)
     )
 
     # cardinality
-    card = sum(b .== 0)
+    card = sum(b .== u)
 
-    return vcat(M,g0,g1,g2,R,C,card)
+    if rc
+        return vcat(M,g0,g1,g2,R,C,card)
+    else
+        return vcat(M,g0,g1,g2,card)
+    end
 end
 
 """
