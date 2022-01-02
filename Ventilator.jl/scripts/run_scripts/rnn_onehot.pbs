@@ -1,19 +1,19 @@
 #!/bin/bash
 ### Job Name
-#PBS -N Ventilator
+#PBS -N RNN-24
 ### Required runtime
-#PBS -l walltime=4:00:00
+#PBS -l walltime=48:00:00
 ### Queue for submission
 #PBS -q cpu_a
 
-### Submit array of 50 jobs
-#PBS -J 1-50
+### Submit array
+#PBS -J 1-20
 
 ### Merge output and error files
 #PBS -j oe
 
 ### Request memory and CPU cores
-#PBS -l select=1:mem=8G:ncpus=1
+#PBS -l select=1:mem=12G:ncpus=1
 job=$PBS_JOBNAME.$PBS_ARRAY_INDEX
 
 ### Start job in the currect directory
@@ -23,4 +23,4 @@ cd $PBS_O_WORKDIR
 module load julia/1.6.0
 
 ### Run script
-julia ../simple_run.jl
+julia rnn_onehot.jl

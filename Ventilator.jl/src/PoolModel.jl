@@ -4,33 +4,6 @@ using StatsBase
 using Random
 
 """
-	function build_mlp(idim::Int, hdim::Int, odim::Int, nlayers::Int; activation::String="relu", lastlayer::String="")
-
-Creates a chain with `nlayers` layers of `hdim` neurons with transfer function `activation`.
-input and output dimension is `idim` / `odim`
-If lastlayer is no specified, all layers use the same function.
-If lastlayer is "linear", then the last layer is forced to be Dense.
-It is also possible to specify dimensions in a vector.
-"""
-build_mlp(ks::Vector{Int}, fs::Vector) = Flux.Chain(map(i -> Dense(i[2],i[3],i[1]), zip(fs,ks[1:end-1],ks[2:end]))...)
-build_mlp(ks::Vector{Int}, fs::Vector, Cell) = Flux.Chain(map(i -> Cell(i[2],i[3]), zip(fs,ks[1:end-1],ks[2:end]))...)
-build_mlp(idim::Int, hdim::Int, odim::Int, nlayers::Int; kwargs...) =
-	build_mlp(vcat(idim, fill(hdim, nlayers-1)..., odim); kwargs...)
-function build_mlp(ks::Vector{Int}; activation::String = "relu", lastlayer::String = "", cell::String = "Dense")
-	activation = (activation == "linear") ? "identity" : activation
-	fs = Array{Any}(fill(eval(:($(Symbol(activation)))), length(ks) - 1))
-	if !isempty(lastlayer)
-		fs[end] = (lastlayer == "linear") ? identity : eval(:($(Symbol(lastlayer))))
-	end
-    if cell == "Dense"
-	    return build_mlp(ks, fs)
-    else
-        Cell = eval(:($(Symbol(cell))))
-        return build_mlp(ks, fs, Cell)
-    end
-end
-
-"""
 PoolModel has 5 components:
 - prepool_net
 - postpool_net
@@ -79,7 +52,7 @@ Dimensions:
 - postdim: the output dimension of post-pool network and input dimension of encoder and generator
 - edim: output dimension of encoder and generator, input dimension to decoder
 """
-function pm_constructor(;idim, odim, hdim=32, predim=16, postdim=16, edim=16,
+function pm_constructor(xsample;idim, odim, hdim=32, predim=16, postdim=16, edim=16,
                             activation="swish", cell="Dense", nlayers=3, var="scalar",
                             poolf="pool", init_seed=nothing, kwargs...)
 
@@ -164,15 +137,18 @@ end
 diffn(x, n) = hcat(map(i -> x[:, i+n] .- x[:, i], 1:size(x,2)-n)...)
 
 """
-    pool_source(_x)
+    pool_source(_x; u = 0)
 
 This function takes the original input and returns summary statistics as
-well as other characteristics of the input matrix.
+well as other characteristics of the input matrix. Only calculates the data
+for breathe-in or breathe-out (controlled with u = 0 or 1).
 """
-function pool_source(_x)
+function pool_source(_x; u = 0, rc = true)
     b = _x[3,:]
-    R, C = _x[4,1], _x[5,1]
-    x = _x[1:2, b .== 0]
+    if rc
+        R, C = _x[4,1], _x[5,1]
+    end
+    x = _x[1:2, b .== u]
 
     # simple statistics
     M = sum_stat(x)
@@ -195,9 +171,13 @@ function pool_source(_x)
     )
 
     # cardinality
-    card = sum(b .== 0)
+    card = sum(b .== u)
 
-    return vcat(M,g0,g1,g2,R,C,card)
+    if rc
+        return vcat(M,g0,g1,g2,R,C,card)
+    else
+        return vcat(M,g0,g1,g2,card)
+    end
 end
 
 """

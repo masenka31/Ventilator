@@ -1,6 +1,6 @@
 # Overview of models
 
-## Data format
+# Data format
 
 The data is in a format of a sequence. Given a sequence of 80 datapoints for each breath, the task is to predict ventilator pressure at each time step. These are the variables used for prediction:
 - **time_step**: the time of measurement
@@ -13,9 +13,13 @@ Have in mind that R and C are the same for each time-point in each set (for a si
 
 *Important note: The final score is taken only from the variables that correspond with breathe-in.*
 
-## Models
+# Models
 
-### single_value_predictor
+The models can be found in folder `run_scripts`. Each `.jl` script has its `.pbs` counterpart used to run experiments on Helios cluster.
+
+## single_value_predictor
+
+*Note: This model does not have a run script.*
 
 The most basic approach. If we completely abandon the grouping based on `breath_id`, we can approach the data as single datapoints where we want to predict `pressure` from a vector of `time_step, u_in, u_out, R, C`.
 
@@ -29,13 +33,13 @@ and use it to predict single values of pressure. The loss function will simply b
 
 ---
 
-### 3layer_net
+## 3layer_net
 
 This model take `breath_id` into account and uses a single breath as a datapoint.
 
 The easiest way to model the pressure from input data is to simply create a vector of all observed variables. Vectors $t, u_{in}$ are vertically concatenated with variables $R, C$ to give a 1D vector of dimension 162. This input vector is then used to predict the pressure vector $P$ with a simple neural network.
 
-The architecture of the 3layer_net is fairly simple, just a stact of 3 Dense layers with a `relu` activation function as
+The architecture of the 3layer_net is fairly simple, just a stack of 3 Dense layers with a `relu` activation function as
 ```
 model = Chain(Dense(168, hdim, relu), Dense(hdim, hdim, relu), Dense(hdim, 80))
 ```
@@ -59,3 +63,22 @@ where $\beta$ is a scaling parameter which gives more importance to `u_out = 0` 
 *Note: The MAE loss can be optionally replaced with MSE in training.*
 
 >  Approximate best score: $\approx$ **1.0**.
+
+## RNN models
+
+It should be one of the first thought to model the data with recurrent neural networks since we are predicting sequences of data. More RNN architectures are used with different preprocessing of data.
+
+In the end, there are 4 RNN models
+
+- `rnn.jl` - RNN with input dimension = 5
+- `rnn_onehot.jl` - RNN with R, C, encoded to onehot vectors, input dimension = 9
+- `rnn_onehot_engineered` - RNN with onehot encoding of R, C and some feature engineering, input dimension = 45
+- `rnn_lags` - RNN with different feature engineering, using difference between the input data
+
+>  Approximate best score: $\approx$ **0.7**.
+
+## 9 in 1 (9models)
+
+If we look at the data carefully, we can see that there are only 9 combinations of (R, C). Therefore, we can train 9 models separately on datasets based on the combination of (R, C). This is what we do in script `9models.jl`. The models are RNN models using verys similar structure and feature engineering as `rnn_lags.jl`.
+
+>  Approximate best score: $\approx$ **to be determined**.

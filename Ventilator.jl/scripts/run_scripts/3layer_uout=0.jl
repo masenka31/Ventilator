@@ -77,7 +77,11 @@ best_score(X, P, b) = Flux.mae(best_model(X)[b[1:32] .== 0], P[1:32][b[1:32] .==
 opt = ADAM()
 best_val_score = Inf
 best_model = deepcopy(model)
-max_train_time = 60*60*11.5
+if isempty(ARGS)
+    max_train_time = 60*60*11.5
+else
+    max_train_time = parse(Float64, ARGS[1])
+end
 k = 1
 
 # start training
