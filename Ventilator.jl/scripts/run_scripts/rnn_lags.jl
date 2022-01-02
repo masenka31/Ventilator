@@ -6,10 +6,11 @@ using Flux
 using Base.Iterators: repeated
 using Flux: throttle, @epochs, mae, mse
 using StatsBase
+using Statistics
 
 # load data and unpack it
 seed = 1
-data = load_data_bags_onehot(;seed=seed, rnn=true);
+data = load_data_bags_engineered_lags(;seed=seed, rnn=true);
 X_train, P_train = data[1];
 X_val, P_val = data[2];
 X_test, P_test = data[3];
@@ -38,13 +39,13 @@ function predict(model, x)
     vcat([model(xi) for xi in x]...)
 end
 
-function score_model(x, p)
-    b = hcat(x...)[3,:]
+function score_model(x, p, b)
+    b = reshape(b, 80)
     Flux.mae(predict(model, x)[b .== 0], vcat(p...)[b .== 0])
 end
 
-function best_score(x, p)
-    b = hcat(x...)[3,:]
+function best_score(x, p, b)
+    b = reshape(b, 80)
     Flux.mae(predict(best_model, x)[b .== 0], vcat(p...)[b .== 0])
 end
 
@@ -62,7 +63,7 @@ opt = ADAM()
 best_val_score = Inf
 best_model = deepcopy(model)
 if isempty(ARGS)
-    max_train_time = 60*60*47
+    max_train_time = 60*60*14
 else
     max_train_time = parse(Float64, ARGS[1])
 end
@@ -76,10 +77,10 @@ start_time = time()
 while true
     # create a minibatch and train the model on a minibatch
     batch = RandomBatch(X_train, P_train, batchsize=128)
-    Flux.train!(loss, Flux.params(model), repeated((batch[1], batch[2]), 5), opt)
-
+    Flux.train!(loss, Flux.params(model), repeated((batch[1], batch[2]), 1), opt)
+    
     # only save a best model which has the best score on validation data
-    sc = mean(score_model.(X_val, P_val))
+    sc = mean(score_model.(X_val, P_val, B_val))
     if sc < best_val_score
         global best_model = deepcopy(model)
         global best_val_score = sc
@@ -99,9 +100,9 @@ end
 ###################################
 
 # calculate the score given the best model after training is finished
-train_sc = mean(best_score.(X_train, P_train))
-val_sc = mean(best_score.(X_val, P_val))
-test_sc = mean(best_score.(X_test, P_test))
+train_sc = mean(best_score.(X_train, P_train, B_train))
+val_sc = mean(best_score.(X_val, P_val, B_val))
+test_sc = mean(best_score.(X_test, P_test, B_test))
 
 # save the best model and the parameters
 using BSON
@@ -118,4 +119,4 @@ d = Dict(
     :test_score => test_sc
 )
 name = savename("model", d, "bson")
-safesave(datadir("RNN_onehot", name), d)
+safesave(datadir("RNN_lags", name), d)

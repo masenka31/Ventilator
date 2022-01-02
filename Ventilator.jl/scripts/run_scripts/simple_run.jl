@@ -84,7 +84,11 @@ opt = ADAM()
 best_val_score = Inf
 best_model = deepcopy(model)
 start_time = time()
-max_train_time = 60*60*11.7
+if isempty(ARGS)
+    max_train_time = 60*60*11.7
+else
+    max_train_time = parse(Float64, ARGS[1])
+end
 k = 1
 
 # start training

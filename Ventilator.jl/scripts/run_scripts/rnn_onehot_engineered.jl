@@ -9,7 +9,7 @@ using StatsBase
 
 # load data and unpack it
 seed = 1
-data = load_data_bags_onehot(;seed=seed, rnn=true);
+data = load_data_bags_engineered(;seed=seed, rnn=true);
 X_train, P_train = data[1];
 X_val, P_val = data[2];
 X_test, P_test = data[3];
@@ -118,4 +118,4 @@ d = Dict(
     :test_score => test_sc
 )
 name = savename("model", d, "bson")
-safesave(datadir("RNN_onehot", name), d)
+safesave(datadir("RNN_onehot_engineered", name), d)

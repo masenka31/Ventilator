@@ -60,7 +60,11 @@ model = rnn_constructor(;idim = 5, odim = 1, pvec...)
 opt = ADAM()
 best_val_score = Inf
 best_model = deepcopy(model)
-max_train_time = 60*60*23 # 23 training hours
+if isempty(ARGS)
+    max_train_time = 60*60*23
+else
+    max_train_time = parse(Float64, ARGS[1])
+end
 k = 1
 
 ################
