@@ -35,7 +35,7 @@ This model take `breath_id` into account and uses a single breath as a datapoint
 
 The easiest way to model the pressure from input data is to simply create a vector of all observed variables. Vectors $t, u_{in}$ are vertically concatenated with variables $R, C$ to give a 1D vector of dimension 162. This input vector is then used to predict the pressure vector $P$ with a simple neural network.
 
-The architecture of the 3layer_net is fairly simple, just a stact of 3 Dense layers with a `relu` activation function as
+The architecture of the 3layer_net is fairly simple, just a stack of 3 Dense layers with a `relu` activation function as
 ```
 model = Chain(Dense(168, hdim, relu), Dense(hdim, hdim, relu), Dense(hdim, 80))
 ```
