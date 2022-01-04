@@ -66,9 +66,7 @@ function train_val_test_split(df::DataFrame; seed=nothing, vars::Vector{Symbol}=
     for g in groups
         # the feature engineering part
         _x = collect(g[!, vars] |> Array |> transpose)
-        xf0, x0 = pool_feature_add(_x; u = 0)
-        xf1, x1 = pool_feature_add(_x; u = 1)
-        xfull = vcat(hcat(x0,x1), xf0, xf1)
+        xfull = pool_feature_lags(_x)
 
         # pressure values
         p = collect(g[:, :pressure]')
@@ -111,7 +109,7 @@ end
 
 # load dataset
 seed = 1
-dataset = load_data_RC(;seed = seed)
+@time dataset = load_data_RC(;seed = seed)
 @info "Data loaded."
 
 #################
@@ -163,6 +161,15 @@ ks = Dict([(i,k) for (i,k) in enumerate(keys(dataset))])
 # now we need 9 optimizers (one for each model)
 opts = Dict([(k, ADAM()) for k in keys(dataset)])
 
+#####################
+### MaxAbs scaler ###
+#####################
+
+# results in NaN values in models :(
+# scp, scx = maxabs_scaler(dataset)
+# scaled_dataset = scale_data(scp, scx, dataset, ks)
+# @info "Dataset scaled with MaxAbs scaler."
+
 ################
 ### Training ###
 ################
@@ -171,7 +178,7 @@ opts = Dict([(k, ADAM()) for k in keys(dataset)])
 best_val_scores = Dict([(k, Inf) for k in keys(dataset)])
 best_models = deepcopy(models)
 if isempty(ARGS)
-    max_train_time = 60*60*24 # 24 training hours
+    max_train_time = 60*60*20 # 20 training hours only :(
 else
     max_train_time = parse(Float64, ARGS[1])
 end
@@ -186,6 +193,7 @@ while true
     Threads.@threads for i in 1:9
     # for i in 1:9
         # get data based on key
+        # X, Y = scaled_dataset[ks[i]][:train]
         X, Y = dataset[ks[i]][:train]
         
         # model & optimiser based on key
@@ -199,10 +207,14 @@ while true
         ps = Flux.params(m)
     
         # sample batch and train
+        # batch = RandomBatch2(X, Y)
         batch = RandomBatch(X, Y)
         Flux.train!(loss, ps, repeated((batch[1], batch[2]), 5), opt)
 
         # validation score
+        # Xv, Yv = scaled_dataset[ks[i]][:val]
+        # Bv = scaled_dataset[ks[i]][:B][2]
+        
         Xv, Yv = dataset[ks[i]][:val]
         Bv = dataset[ks[i]][:B][2]
 
@@ -250,8 +262,11 @@ function get_scores(dataset, models, ks, type::Symbol=:val)
         Xv, Yv = dataset[ks[i]][type]
         num = Dict(:train => 1, :val => 2, :test => 3)
         Bv = dataset[ks[i]][:B][num[type]]
-        score = mean(map((x, y, b) -> score_model(m, x, y, b), Xv, Yv, Bv))
-        
+        if type == :train
+            score = mean(map((x, y, b) -> score_model(m, x, y, b), Xv[1:1000], Yv[1:1000], Bv[1:1000]))
+        else
+            score = mean(map((x, y, b) -> score_model(m, x, y, b), Xv, Yv, Bv))
+        end
         scores[ks[i]] = score
     end
     
@@ -289,7 +304,8 @@ d = Dict(
     :test => test_sc,
     :train_score => train,
     :val_score => val,
-    :test_score => test
+    :test_score => test,
+    :epochs => k
 )
 name = savename("model", d, "bson")
-safesave(datadir("9models", name), d)
+safesave(datadir("9models_lags", name), d)

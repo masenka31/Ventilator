@@ -28,12 +28,36 @@ function RandomBatch(xdata,ydata,bdata;batchsize::Int=64)
 end
 
 """
-    RandomBatch(xdata,ydata,bdata;batchsize::Int=64)
+    RandomBatch(xdata,ydata;batchsize::Int=64)
 
-Samples random batch of `batchsize` size from data X, Y, B,
-where B is a vector of boolean values indicating value of `u_out`.
+Samples random batch of `batchsize` size from data X, Y.
+Creates batches for RNN.
 """
 function RandomBatch(Xd::Vector{Vector{Vector{Float32}}}, Yd::Vector{Vector{Vector{Float32}}}; batchsize=64)
+    l = length(Xd)
+    idx = sample(1:l, batchsize, replace=false)
+    X = Xd[idx]
+    Y = Yd[idx]
+    x = [hcat([X[i][j] for i in 1:batchsize]...) for j in 1:80]
+    y = [hcat([Y[i][j] for i in 1:batchsize]...) for j in 1:80]
+    (x, y)
+end
+function RandomBatch(Xd::Vector{Vector{Vector{Float32}}}, Yd::Vector{Vector{Vector{Float32}}}, scp, scx; batchsize=64)
+    l = length(Xd)
+    idx = sample(1:l, batchsize, replace=false)
+    X = Xd[idx]
+    Y = Yd[idx]
+
+    xb = map(x -> map(y -> y ./ scx, x), X)
+    yb = map(x -> map(y -> y ./ scp, x), Y)
+
+    x = [hcat([xb[i][j] for i in 1:batchsize]...) for j in 1:80]
+    y = [hcat([yb[i][j] for i in 1:batchsize]...) for j in 1:80]
+    (x, y)
+end
+
+
+function RandomBatch2(Xd::Vector{Vector{Matrix{Float32}}}, Yd::Vector{Vector{Vector{Float32}}}; batchsize=64)
     l = length(Xd)
     idx = sample(1:l, batchsize, replace=false)
     X = Xd[idx]

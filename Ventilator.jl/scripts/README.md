@@ -3,6 +3,7 @@
 # Data format
 
 The data is in a format of a sequence. Given a sequence of 80 datapoints for each breath, the task is to predict ventilator pressure at each time step. These are the variables used for prediction:
+
 - **time_step**: the time of measurement
 - **u_in**: the control input for the inspiratory solenoid valve (ranges from 0 to 100)
 - **u_out**: indicator variable, 0 for breathe-in, 1 for breathe-out

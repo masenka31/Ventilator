@@ -27,7 +27,7 @@ function sum_stat(x)
     m1 = mean(x, dims=2)
     m2 = maximum(x, dims=2)
     m3 = minimum(x, dims=2)
-    m4 = var(x, dims=2)
+    m4 = std(x, dims=2)
     if any(isnan.(m4))
         m4 = zeros(length(m1))
     end
@@ -151,5 +151,53 @@ function pool_feature_add(_x; u = 0, rc = false)
     return (
         one_matrix,
         vcat(x, padding(d1, c), padding(d2, c), padding(d3, c))
+    )
+end
+
+function sum_stat2(x)
+    m1 = mean(x)
+    m2 = maximum(x)
+    m3 = minimum(x)
+    return vcat(m1,m2,m3)
+end
+
+function sum_stat2(x, d)
+    m1 = mean(x, dims=d)
+    m2 = maximum(x, dims=d)
+    m3 = minimum(x, dims=d)
+    return vcat(m1,m2,m3)
+end
+
+"""
+    pool_feature_lags(_x)
+
+Feature engineering function. Calculates summary statistics and
+difference vector based on whether the variable `u_out` is 0 or 1.
+"""
+function pool_feature_lags(_x)
+    b = _x[3,:]
+    y0 = _x[1:2, b .== 0]
+    y1 = _x[1:2, b .== 1]
+    x = _x[2,:]'
+    c = size(y0, 2)
+
+    # simple statistics
+    M0 = sum_stat(y0)
+    M1 = sum_stat(y1)
+
+    # gaps
+    dd = map(n -> diffn(x, n), 1:79)
+    pd = map(x -> padding(x, 80), dd)
+    lags = vcat(pd...)
+
+    ss = sum_stat2(lags[1:5, 1:c], 2)
+
+    one_feature = vcat(M0,M1,ss)
+    one_matrix = repeat(one_feature, 1, 80)
+
+    return vcat(
+        one_matrix,
+        lags,
+        _x[1:2,:]
     )
 end

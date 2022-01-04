@@ -10,6 +10,7 @@ include("data.jl")
 include("utils.jl")
 #include("PoolModel.jl")
 include("features.jl")
+include("maxabs_scaler.jl")
 
 export scatter2, scatter2!
 export load_data_vectors, load_data_bags, load_data_single
@@ -20,5 +21,7 @@ export RandomBatch
 export rnn_constructor
 
 export pool_feature_add
+export pool_feature_lags
+export maxabs_scaler, scale_data
 
 end #module
